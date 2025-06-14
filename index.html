@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Global Domain Block Checker</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 720px; margin: auto; }
+    textarea { width: 100%; height: 150px; padding: 10px; }
+    .result { margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 8px; }
+    select, button { padding: 10px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>🔍 Domain Block Checker (Global ISP)</h2>
+
+  <p>Masukkan daftar domain (satu per baris):</p>
+  <textarea id="domains" placeholder="contoh.com\ntest.xyz"></textarea>
+
+  <p>Pilih koneksi (jika tidak terdeteksi otomatis):</p>
+  <select id="manual-connection">
+    <option value="auto">🔍 Deteksi Otomatis</option>
+    <option value="wifi">📡 WiFi</option>
+    <option value="cellular">📶 Mobile Data</option>
+  </select>
+
+  <br><br>
+  <button onclick="checkDomains()">Check Domains</button>
+
+  <div class="result" id="provider-info"></div>
+  <div class="result" id="results"></div>
+
+  <script>
+    async function getISP() {
+      try {
+        const res = await fetch("https://ipinfo.io/json?token=c8e94223ecb8e9");
+        const data = await res.json();
+        return {
+          ip: data.ip,
+          org: (data.org || '').toLowerCase(),
+          city: data.city,
+          region: data.region,
+          country: data.country
+        };
+      } catch (e) {
+        return { ip: '-', org: '-', city: '-', region: '-', country: '-' };
+      }
+    }
+
+    async function checkDomains() {
+      const domainList = document.getElementById("domains").value
+                          .split('\n').map(d => d.trim()).filter(Boolean);
+      const ispInfo = await getISP();
+
+      let connType = navigator.connection?.type || 'unknown';
+      const manual = document.getElementById("manual-connection")?.value;
+      if (manual && manual !== "auto") connType = manual;
+
+      document.getElementById("provider-info").innerHTML = `
+        📍 Lokasi: ${ispInfo.city}, ${ispInfo.region}, ${ispInfo.country} <br>
+        🏢 ISP: ${ispInfo.org}<br>
+        📶 Jenis koneksi: ${connType}
+      `;
+
+      if (connType === 'wifi' || connType === 'unknown') {
+        alert("Gunakan jaringan SIM card untuk hasil akurat dari provider asli.");
+      }
+
+      const results = [];
+      for (const domain of domainList) {
+        try {
+          await fetch("https://" + domain, { mode: 'no-cors' });
+          results.push({ domain, status: '✅ Accessible' });
+        } catch {
+          results.push({ domain, status: '❌ Blocked or Failed' });
+        }
+      }
+
+      document.getElementById("results").innerHTML = results
+        .map(r => `<p>${r.domain}: ${r.status}</p>`).join('');
+
+      fetch("https://your-backend.com/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ip: ispInfo.ip,
+          org: ispInfo.org,
+          country: ispInfo.country,
+          location: `${ispInfo.city}, ${ispInfo.region}`,
+          conn_type: connType,
+          results
+        })
+      });
+    }
+  </script>
+</body>
+</html>
