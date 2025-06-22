@@ -2,95 +2,867 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Global Domain Block Checker</title>
+  <title>Fast Global Domain Block Checker</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 720px; margin: auto; }
-    textarea { width: 100%; height: 150px; padding: 10px; }
-    .result { margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 8px; }
-    select, button { padding: 10px; margin-top: 10px; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      padding: 15px; 
+      max-width: 900px; 
+      margin: auto; 
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #2c3e50;
+      margin-bottom: 20px;
+      font-size: 1.8rem;
+    }
+    textarea { 
+      width: 100%; 
+      height: 150px; 
+      padding: 12px; 
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 14px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .control-group label {
+      font-weight: bold;
+      font-size: 12px;
+      color: #555;
+    }
+    select, button { 
+      padding: 12px 15px; 
+      border: 2px solid #3498db;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #3498db;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s;
+      border: none;
+      width: 100%;
+    }
+    button:hover:not(:disabled) {
+      background: #2980b9;
+      transform: translateY(-1px);
+    }
+    button:disabled {
+      background: #bdc3c7;
+      cursor: not-allowed;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .info-box { 
+      margin: 20px 0; 
+      padding: 15px; 
+      background: #ecf0f1; 
+      border-radius: 8px;
+      border-left: 4px solid #3498db;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .results-container {
+      margin-top: 20px;
+    }
+    .results-header {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    .results-title {
+      font-size: 1.3rem;
+      color: #2c3e50;
+      margin: 0;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 20px;
+      background: #ecf0f1;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3498db, #2ecc71);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .results-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 60vh;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      background: #fafafa;
+    }
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: white;
+      border-radius: 6px;
+      border-left: 4px solid #ddd;
+      font-family: monospace;
+      font-size: 13px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .result-item:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .result-item.accessible {
+      border-left-color: #27ae60;
+    }
+    .result-item.blocked {
+      border-left-color: #e74c3c;
+    }
+    .result-item.checking {
+      border-left-color: #f39c12;
+      animation: pulse 1.5s infinite;
+    }
+    .result-domain {
+      flex: 1;
+      font-weight: bold;
+      word-break: break-all;
+      margin-right: 10px;
+    }
+    .result-status-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .copy-btn {
+      background: #95a5a6;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: auto;
+      min-width: 40px;
+    }
+    .copy-btn:hover {
+      background: #7f8c8d;
+      transform: none;
+    }
+    .copy-btn.copied {
+      background: #27ae60;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .status {
+      font-weight: bold;
+      padding: 6px 10px;
+      border-radius: 4px;
+      color: white;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .status.accessible { background: #27ae60; }
+    .status.blocked { background: #e74c3c; }
+    .status.checking { background: #f39c12; }
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+      font-weight: bold;
+    }
+    .summary-item {
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: white;
+      font-size: 12px;
+      flex: 1;
+      text-align: center;
+      min-width: 80px;
+    }
+    .accessible-count { background: #27ae60; }
+    .blocked-count { background: #e74c3c; }
+    .total-count { background: #34495e; }
+    .export-btn {
+      background: #27ae60;
+      border-color: #27ae60;
+    }
+    .export-btn:hover {
+      background: #229954;
+    }
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #2ecc71;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-weight: bold;
+      z-index: 1000;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      .container {
+        padding: 15px;
+        border-radius: 8px;
+      }
+      h2 {
+        font-size: 1.5rem;
+        text-align: center;
+      }
+      textarea {
+        height: 120px;
+        font-size: 16px; /* Prevents zoom on iOS */
+      }
+      .controls {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
+      .button-group {
+        flex-direction: column;
+        gap: 10px;
+      }
+      .results-header {
+        text-align: center;
+      }
+      .results-title {
+        font-size: 1.1rem;
+      }
+      .summary {
+        justify-content: center;
+      }
+      .summary-item {
+        font-size: 11px;
+        padding: 6px 8px;
+      }
+      .results-grid {
+        max-height: 50vh;
+        padding: 10px;
+      }
+      .result-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 15px 12px;
+      }
+      .result-domain {
+        margin-right: 0;
+        font-size: 14px;
+      }
+      .result-status-container {
+        align-self: stretch;
+        justify-content: space-between;
+      }
+      .status {
+        font-size: 10px;
+        padding: 4px 8px;
+      }
+      .copy-btn {
+        font-size: 9px;
+        padding: 6px 10px;
+      }
+      .info-box {
+        font-size: 13px;
+        padding: 12px;
+      }
+      .toast {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        transform: translateY(-100%);
+      }
+      .toast.show {
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 12px;
+      }
+      h2 {
+        font-size: 1.3rem;
+      }
+      .summary-item {
+        font-size: 10px;
+        padding: 5px 6px;
+      }
+      .result-item {
+        padding: 12px 10px;
+      }
+      .result-domain {
+        font-size: 13px;
+      }
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #1a1a1a;
+        color: #e0e0e0;
+      }
+      .container {
+        background: #2d2d2d;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      }
+      h2 {
+        color: #ffffff;
+      }
+      textarea {
+        background: #3d3d3d;
+        border-color: #555;
+        color: #e0e0e0;
+      }
+      .info-box {
+        background: #3d3d3d;
+        border-left-color: #3498db;
+      }
+      .results-grid {
+        background: #3d3d3d;
+        border-color: #555;
+      }
+      .result-item {
+        background: #4d4d4d;
+      }
+      .result-item:hover {
+        background: #5d5d5d;
+      }
+    }
   </style>
 </head>
 <body>
-  <h2>🔍 Domain Block Checker (Global ISP)</h2>
+  <div class="container">
+    <h2>🚀 Fast Global Domain Block Checker</h2>
+    
+    <p><strong>Enter domain list (one per line):</strong></p>
+    <textarea id="domains" placeholder="example.com&#10;google.com&#10;facebook.com&#10;test.xyz"></textarea>
+    
+    <div class="controls">
+      <div class="control-group">
+        <label for="manual-connection">Connection Type:</label>
+        <select id="manual-connection">
+          <option value="auto">🔍 Auto Detect</option>
+          <option value="wifi">📡 WiFi</option>
+          <option value="cellular">📶 Mobile Data</option>
+          <option value="ethernet">🔌 Ethernet</option>
+        </select>
+      </div>
+      
+      <div class="control-group">
+        <label for="timeout">Timeout:</label>
+        <select id="timeout">
+          <option value="3000">3 seconds</option>
+          <option value="5000" selected>5 seconds</option>
+          <option value="10000">10 seconds</option>
+        </select>
+      </div>
+      
+      <div class="control-group">
+        <label for="concurrent">Concurrent:</label>
+        <select id="concurrent">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="button-group">
+      <button id="check-btn" onclick="checkDomains()">🔍 Check Domains</button>
+      <button id="export-btn" class="export-btn" onclick="exportResults()" style="display:none">📥 Export CSV</button>
+    </div>
+    
+    <div class="info-box" id="provider-info">
+      <strong>📍 Location & ISP Info:</strong> Loading...
+    </div>
+    
+    <div class="results-container" id="results-container" style="display:none">
+      <div class="results-header">
+        <h3 class="results-title">📊 Results</h3>
+        <div class="summary" id="summary"></div>
+      </div>
+      
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      
+      <div class="results-grid" id="results"></div>
+    </div>
+  </div>
 
-  <p>Masukkan daftar domain (satu per baris):</p>
-  <textarea id="domains" placeholder="contoh.com\ntest.xyz"></textarea>
-
-  <p>Pilih koneksi (jika tidak terdeteksi otomatis):</p>
-  <select id="manual-connection">
-    <option value="auto">🔍 Deteksi Otomatis</option>
-    <option value="wifi">📡 WiFi</option>
-    <option value="cellular">📶 Mobile Data</option>
-  </select>
-
-  <br><br>
-  <button onclick="checkDomains()">Check Domains</button>
-
-  <div class="result" id="provider-info"></div>
-  <div class="result" id="results"></div>
+  <!-- Toast notification -->
+  <div id="toast" class="toast"></div>
 
   <script>
+    let allResults = [];
+    let totalDomains = 0;
+    let checkedDomains = 0;
+
+    // Get ISP information
     async function getISP() {
       try {
-        const res = await fetch("https://ipinfo.io/json?token=c8e94223ecb8e9");
+        // Using a free IP info service without exposed tokens
+        const res = await fetch("https://ipapi.co/json/");
         const data = await res.json();
         return {
-          ip: data.ip,
-          org: (data.org || '').toLowerCase(),
-          city: data.city,
-          region: data.region,
-          country: data.country
+          ip: data.ip || 'Unknown',
+          org: data.org || 'Unknown ISP',
+          city: data.city || 'Unknown',
+          region: data.region || 'Unknown',
+          country: data.country_name || 'Unknown'
         };
       } catch (e) {
-        return { ip: '-', org: '-', city: '-', region: '-', country: '-' };
+        return { 
+          ip: 'Unable to detect', 
+          org: 'Unknown ISP', 
+          city: 'Unknown', 
+          region: 'Unknown', 
+          country: 'Unknown' 
+        };
       }
     }
 
-    async function checkDomains() {
-      const domainList = document.getElementById("domains").value
-                          .split('\n').map(d => d.trim()).filter(Boolean);
-      const ispInfo = await getISP();
+    // Check single domain with multiple methods
+    async function checkSingleDomain(domain, timeout = 5000) {
+      return new Promise((resolve) => {
+        const startTime = Date.now();
+        let completed = false;
+        let accessibleFound = false;
+        let results = [];
 
-      let connType = navigator.connection?.type || 'unknown';
-      const manual = document.getElementById("manual-connection")?.value;
-      if (manual && manual !== "auto") connType = manual;
+        const completeCheck = () => {
+          if (completed) return;
+          completed = true;
+          
+          if (accessibleFound) {
+            const successResult = results.find(r => r.success);
+            resolve({
+              domain,
+              status: 'accessible',
+              responseTime: successResult.responseTime,
+              protocol: successResult.protocol,
+              method: successResult.method
+            });
+          } else {
+            // Check if we got any responses (even errors)
+            const hasResponse = results.some(r => r.hasResponse);
+            if (hasResponse) {
+              resolve({
+                domain,
+                status: 'accessible',
+                responseTime: Math.min(...results.map(r => r.responseTime)),
+                protocol: results[0].protocol,
+                method: 'Protected/Filtered',
+                note: 'Accessible but may have protection (Cloudflare, etc.)'
+              });
+            } else {
+              resolve({
+                domain,
+                status: 'blocked',
+                responseTime: timeout,
+                error: 'No response - likely blocked by ISP'
+              });
+            }
+          }
+        };
 
-      document.getElementById("provider-info").innerHTML = `
-        📍 Lokasi: ${ispInfo.city}, ${ispInfo.region}, ${ispInfo.country} <br>
-        🏢 ISP: ${ispInfo.org}<br>
-        📶 Jenis koneksi: ${connType}
-      `;
+        // Set overall timeout
+        const timeoutId = setTimeout(completeCheck, timeout);
 
-      if (connType === 'wifi' || connType === 'unknown') {
-        alert("Gunakan jaringan SIM card untuk hasil akurat dari provider asli.");
-      }
+        // Test methods
+        const testMethods = [
+          { url: `https://${domain}`, protocol: 'HTTPS' },
+          { url: `http://${domain}`, protocol: 'HTTP' },
+          { url: `https://${domain}/favicon.ico`, protocol: 'HTTPS', method: 'Favicon' },
+          { url: `https://${domain}/robots.txt`, protocol: 'HTTPS', method: 'Robots.txt' }
+        ];
 
-      const results = [];
-      for (const domain of domainList) {
-        try {
-          await fetch("https://" + domain, { mode: 'no-cors' });
-          results.push({ domain, status: '✅ Accessible' });
-        } catch {
-          results.push({ domain, status: '❌ Blocked or Failed' });
-        }
-      }
+        let completedMethods = 0;
 
-      document.getElementById("results").innerHTML = results
-        .map(r => `<p>${r.domain}: ${r.status}</p>`).join('');
+        testMethods.forEach(async (test, index) => {
+          try {
+            const methodStartTime = Date.now();
+            const controller = new AbortController();
+            const methodTimeout = setTimeout(() => controller.abort(), timeout - 200);
+            
+            const response = await fetch(test.url, { 
+              mode: 'no-cors',
+              signal: controller.signal,
+              cache: 'no-cache',
+              redirect: 'follow'
+            });
+            
+            clearTimeout(methodTimeout);
+            
+            const responseTime = Date.now() - methodStartTime;
+            
+            // If we get here without error, the domain is accessible
+            results.push({
+              success: true,
+              hasResponse: true,
+              responseTime,
+              protocol: test.protocol,
+              method: test.method || 'Direct'
+            });
+            
+            if (!accessibleFound) {
+              accessibleFound = true;
+              clearTimeout(timeoutId);
+              completeCheck();
+            }
+            
+          } catch (error) {
+            const responseTime = Date.now() - methodStartTime;
+            
+            // Even network errors often mean the domain is accessible but protected
+            const hasResponse = error.name !== 'AbortError' && 
+                               !error.message.includes('Failed to fetch') &&
+                               responseTime < timeout - 1000; // Got a response quickly
+            
+            results.push({
+              success: false,
+              hasResponse,
+              responseTime,
+              protocol: test.protocol,
+              method: test.method || 'Direct',
+              error: error.name
+            });
+          }
+          
+          completedMethods++;
+          if (completedMethods === testMethods.length && !completed) {
+            clearTimeout(timeoutId);
+            completeCheck();
+          }
+        });
 
-      fetch("https://your-backend.com/api/report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ip: ispInfo.ip,
-          org: ispInfo.org,
-          country: ispInfo.country,
-          location: `${ispInfo.city}, ${ispInfo.region}`,
-          conn_type: connType,
-          results
-        })
+        // Additional DNS-based check using image loading
+        const img = new Image();
+        const imgStartTime = Date.now();
+        
+        img.onload = img.onerror = () => {
+          const responseTime = Date.now() - imgStartTime;
+          if (responseTime < 1000) { // Quick response suggests accessible
+            results.push({
+              success: img.complete && img.naturalHeight !== 0,
+              hasResponse: true,
+              responseTime,
+              protocol: 'HTTPS',
+              method: 'Image'
+            });
+            
+            if (!accessibleFound && !completed) {
+              accessibleFound = true;
+              clearTimeout(timeoutId);
+              completeCheck();
+            }
+          }
+        };
+        
+        setTimeout(() => {
+          img.src = `https://${domain}/favicon.ico?t=${Date.now()}`;
+        }, 100);
       });
     }
+
+    // Process domains in batches
+    async function processBatch(domains, batchSize, timeout) {
+      const results = [];
+      
+      for (let i = 0; i < domains.length; i += batchSize) {
+        const batch = domains.slice(i, i + batchSize);
+        const batchPromises = batch.map(domain => {
+          updateDomainStatus(domain, 'checking');
+          return checkSingleDomain(domain, timeout);
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+        
+        // Update UI for completed batch
+        batchResults.forEach(result => {
+          updateDomainStatus(result.domain, result.status, result);
+          checkedDomains++;
+          updateProgress();
+        });
+        
+        // Small delay to prevent overwhelming the browser
+        if (i + batchSize < domains.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      return results;
+    }
+
+    // Update domain status in UI
+    function updateDomainStatus(domain, status, result = null) {
+      const resultElement = document.getElementById(`domain-${domain.replace(/[^a-zA-Z0-9]/g, '')}`);
+      if (!resultElement) return;
+      
+      resultElement.className = `result-item ${status}`;
+      
+      let statusText, statusIcon;
+      if (status === 'accessible') {
+        statusIcon = '✅';
+        statusText = 'Accessible';
+      } else if (status === 'blocked') {
+        statusIcon = '❌';
+        statusText = 'Blocked/Failed';
+      } else {
+        statusIcon = '⏳';
+        statusText = 'Checking...';
+      }
+      
+      let details = '';
+      if (result && status === 'accessible') {
+        details = ` (${result.responseTime}ms`;
+        if (result.protocol) details += `, ${result.protocol}`;
+        if (result.method && result.method !== 'Direct') details += `, ${result.method}`;
+        details += ')';
+        
+        // Show note for protected domains
+        if (result.note) {
+          statusText = 'Accessible*';
+          statusIcon = '🟡';
+        }
+      } else if (result && status === 'blocked' && result.error) {
+        details = ` (${result.error})`;
+      }
+      
+      resultElement.innerHTML = `
+        <div class="result-domain">${domain}</div>
+        <div class="result-status-container">
+          <span class="status ${status}" title="${result?.note || ''}">${statusIcon} ${statusText}${details}</span>
+          <button class="copy-btn" onclick="copyDomain('${domain}', this)" title="Copy domain">📋</button>
+        </div>
+      `;
+    }
+
+    // Copy domain function
+    function copyDomain(domain, button) {
+      navigator.clipboard.writeText(domain).then(() => {
+        button.textContent = '✓';
+        button.classList.add('copied');
+        showToast(`Copied: ${domain}`);
+        
+        setTimeout(() => {
+          button.textContent = '📋';
+          button.classList.remove('copied');
+        }, 2000);
+      }).catch(() => {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = domain;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        button.textContent = '✓';
+        button.classList.add('copied');
+        showToast(`Copied: ${domain}`);
+        
+        setTimeout(() => {
+          button.textContent = '📋';
+          button.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    // Show toast notification
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Update progress bar
+    function updateProgress() {
+      const progress = (checkedDomains / totalDomains) * 100;
+      document.getElementById('progress-fill').style.width = `${progress}%`;
+      
+      // Update summary
+      const accessible = allResults.filter(r => r.status === 'accessible').length;
+      const blocked = allResults.filter(r => r.status === 'blocked').length;
+      
+      document.getElementById('summary').innerHTML = `
+        <div class="summary-item accessible-count">✅ Accessible: ${accessible}</div>
+        <div class="summary-item blocked-count">❌ Blocked: ${blocked}</div>
+        <div class="summary-item total-count">📊 Total: ${checkedDomains}/${totalDomains}</div>
+      `;
+    }
+
+    // Main check function
+    async function checkDomains() {
+      const domainList = document.getElementById("domains").value
+                          .split('\n')
+                          .map(d => d.trim())
+                          .filter(Boolean);
+      
+      if (domainList.length === 0) {
+        alert('Please enter at least one domain!');
+        return;
+      }
+      
+      // Reset state
+      allResults = [];
+      totalDomains = domainList.length;
+      checkedDomains = 0;
+      
+      // Get settings
+      const timeout = parseInt(document.getElementById("timeout").value);
+      const concurrent = parseInt(document.getElementById("concurrent").value);
+      
+      // Update UI
+      document.getElementById('check-btn').disabled = true;
+      document.getElementById('check-btn').textContent = '🔄 Checking...';
+      document.getElementById('results-container').style.display = 'block';
+      document.getElementById('export-btn').style.display = 'none';
+      
+      // Get ISP info
+      const ispInfo = await getISP();
+      let connType = navigator.connection?.effectiveType || 'unknown';
+      const manual = document.getElementById("manual-connection")?.value;
+      if (manual && manual !== "auto") connType = manual;
+      
+      document.getElementById("provider-info").innerHTML = `
+        <strong>📍 Location:</strong> ${ispInfo.city}, ${ispInfo.region}, ${ispInfo.country}<br>
+        <strong>🏢 ISP:</strong> ${ispInfo.org}<br>
+        <strong>📶 Connection:</strong> ${connType}<br>
+        <strong>🔧 Settings:</strong> ${concurrent} concurrent, ${timeout/1000}s timeout
+      `;
+      
+      // Create result elements
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = domainList.map(domain => 
+        `<div id="domain-${domain.replace(/[^a-zA-Z0-9]/g, '')}" class="result-item checking">
+          <div class="result-domain">${domain}</div>
+          <div class="result-status-container">
+            <span class="status checking">⏳ Checking...</span>
+            <button class="copy-btn" onclick="copyDomain('${domain}', this)" title="Copy domain">📋</button>
+          </div>
+        </div>`
+      ).join('');
+      
+      // Update initial progress
+      updateProgress();
+      
+      // Process domains
+      try {
+        allResults = await processBatch(domainList, concurrent, timeout);
+        
+        // Final update
+        document.getElementById('check-btn').disabled = false;
+        document.getElementById('check-btn').textContent = '🔍 Check Domains';
+        document.getElementById('export-btn').style.display = 'inline-block';
+        
+        console.log('Domain check completed:', allResults);
+        
+      } catch (error) {
+        console.error('Error during domain checking:', error);
+        alert('An error occurred during checking. Please try again.');
+        document.getElementById('check-btn').disabled = false;
+        document.getElementById('check-btn').textContent = '🔍 Check Domains';
+      }
+    }
+
+    // Export results to CSV
+    function exportResults() {
+      if (allResults.length === 0) return;
+      
+      const csvContent = [
+        ['Domain', 'Status', 'Response Time (ms)', 'Protocol', 'Timestamp'].join(','),
+        ...allResults.map(result => [
+          result.domain,
+          result.status,
+          result.responseTime || 'N/A',
+          result.protocol || 'N/A',
+          new Date().toISOString()
+        ].join(','))
+      ].join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `domain-check-results-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
+
+    // Load ISP info on page load
+    window.addEventListener('load', async () => {
+      const ispInfo = await getISP();
+      let connType = navigator.connection?.effectiveType || 'unknown';
+      
+      document.getElementById("provider-info").innerHTML = `
+        <strong>📍 Location:</strong> ${ispInfo.city}, ${ispInfo.region}, ${ispInfo.country}<br>
+        <strong>🏢 ISP:</strong> ${ispInfo.org}<br>
+        <strong>📶 Connection:</strong> ${connType}<br>
+        <strong>💡 Tip:</strong> Use mobile data for accurate ISP blocking detection
+      `;
+    });
+    
+    // Add keyboard shortcut
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'Enter') {
+        checkDomains();
+      }
+    });
   </script>
 </body>
 </html>
