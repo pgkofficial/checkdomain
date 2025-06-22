@@ -200,6 +200,7 @@
     .status.accessible { background: #27ae60; }
     .status.blocked { background: #e74c3c; }
     .status.checking { background: #f39c12; }
+    .status.protected { background: #f39c12; }
     .summary {
       display: flex;
       flex-wrap: wrap;
@@ -482,23 +483,24 @@
           completed = true;
           
           if (accessibleFound) {
-            const successResult = results.find(r => r.success);
+            const successResult = results.find(r => r.success) || results[0];
             resolve({
               domain,
               status: 'accessible',
-              responseTime: successResult.responseTime,
-              protocol: successResult.protocol,
-              method: successResult.method
+              responseTime: successResult?.responseTime || (Date.now() - startTime),
+              protocol: successResult?.protocol || 'HTTPS',
+              method: successResult?.method || 'Direct'
             });
           } else {
             // Check if we got any responses (even errors)
             const hasResponse = results.some(r => r.hasResponse);
             if (hasResponse) {
+              const validResults = results.filter(r => r.responseTime);
               resolve({
                 domain,
                 status: 'accessible',
-                responseTime: Math.min(...results.map(r => r.responseTime)),
-                protocol: results[0].protocol,
+                responseTime: validResults.length > 0 ? Math.min(...validResults.map(r => r.responseTime)) : (Date.now() - startTime),
+                protocol: results[0]?.protocol || 'HTTPS',
                 method: 'Protected/Filtered',
                 note: 'Accessible but may have protection (Cloudflare, etc.)'
               });
@@ -506,7 +508,7 @@
               resolve({
                 domain,
                 status: 'blocked',
-                responseTime: timeout,
+                responseTime: Date.now() - startTime,
                 error: 'No response - likely blocked by ISP'
               });
             }
@@ -527,8 +529,8 @@
         let completedMethods = 0;
 
         testMethods.forEach(async (test, index) => {
+          const methodStartTime = Date.now();
           try {
-            const methodStartTime = Date.now();
             const controller = new AbortController();
             const methodTimeout = setTimeout(() => controller.abort(), timeout - 200);
             
@@ -547,7 +549,7 @@
             results.push({
               success: true,
               hasResponse: true,
-              responseTime,
+              responseTime: responseTime,
               protocol: test.protocol,
               method: test.method || 'Direct'
             });
@@ -568,8 +570,8 @@
             
             results.push({
               success: false,
-              hasResponse,
-              responseTime,
+              hasResponse: hasResponse,
+              responseTime: responseTime,
               protocol: test.protocol,
               method: test.method || 'Direct',
               error: error.name
@@ -589,16 +591,16 @@
         
         img.onload = img.onerror = () => {
           const responseTime = Date.now() - imgStartTime;
-          if (responseTime < 1000) { // Quick response suggests accessible
+          if (responseTime < 1000 && !completed) { // Quick response suggests accessible
             results.push({
               success: img.complete && img.naturalHeight !== 0,
               hasResponse: true,
-              responseTime,
+              responseTime: responseTime,
               protocol: 'HTTPS',
               method: 'Image'
             });
             
-            if (!accessibleFound && !completed) {
+            if (!accessibleFound) {
               accessibleFound = true;
               clearTimeout(timeoutId);
               completeCheck();
@@ -663,7 +665,8 @@
       
       let details = '';
       if (result && status === 'accessible') {
-        details = ` (${result.responseTime}ms`;
+        const responseTime = result.responseTime || 0;
+        details = ` (${responseTime}ms`;
         if (result.protocol) details += `, ${result.protocol}`;
         if (result.method && result.method !== 'Direct') details += `, ${result.method}`;
         details += ')';
@@ -673,14 +676,19 @@
           statusText = 'Accessible*';
           statusIcon = '🟡';
         }
-      } else if (result && status === 'blocked' && result.error) {
-        details = ` (${result.error})`;
+      } else if (result && status === 'blocked') {
+        const responseTime = result.responseTime || 0;
+        details = ` (${responseTime}ms`;
+        if (result.error) details += `, ${result.error}`;
+        details += ')';
       }
+      
+      const noteTitle = result?.note ? result.note : '';
       
       resultElement.innerHTML = `
         <div class="result-domain">${domain}</div>
         <div class="result-status-container">
-          <span class="status ${status}" title="${result?.note || ''}">${statusIcon} ${statusText}${details}</span>
+          <span class="status ${status}" title="${noteTitle}">${statusIcon} ${statusText}${details}</span>
           <button class="copy-btn" onclick="copyDomain('${domain}', this)" title="Copy domain">📋</button>
         </div>
       `;
@@ -734,8 +742,8 @@
       document.getElementById('progress-fill').style.width = `${progress}%`;
       
       // Update summary
-      const accessible = allResults.filter(r => r.status === 'accessible').length;
-      const blocked = allResults.filter(r => r.status === 'blocked').length;
+      const accessible = allResults.filter(r => r && r.status === 'accessible').length;
+      const blocked = allResults.filter(r => r && r.status === 'blocked').length;
       
       document.getElementById('summary').innerHTML = `
         <div class="summary-item accessible-count">✅ Accessible: ${accessible}</div>
